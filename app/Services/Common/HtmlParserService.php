@@ -206,7 +206,7 @@ class HtmlParserService
             }
 
             $href = (string) $link->getAttribute('href');
-            if (!preg_match('#/hadith-category/cat/([^/?#]+)#', $href, $match)) {
+            if (!preg_match('#/hadith-category/cat/([^/?\#]+)#', $href, $match)) {
                 continue;
             }
 

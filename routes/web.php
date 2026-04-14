@@ -21,6 +21,7 @@ Route::get('/docs', function () {
 });
 
 Route::view('/api-docs', 'api-docs');
+Route::view('/tools/hadith-export', 'hadith-export');
 
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::middleware([NormalizeQueryOptions::class])->group(function () {
