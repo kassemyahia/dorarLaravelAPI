@@ -27,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
         $decayMinutes = max(1, (int) ceil($windowMs / 60000));
 
         RateLimiter::for('api', function (Request $request) use ($maxAttempts, $decayMinutes) {
+            if (app()->environment(['local', 'testing'])) {
+                return Limit::none();
+            }
+
             return Limit::perMinutes($decayMinutes, $maxAttempts)
                 ->by($request->ip() ?: 'global');
         });

@@ -5,6 +5,7 @@ namespace App\Services\Common;
 use App\Exceptions\ApiException;
 use DOMDocument;
 use DOMXPath;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 class DorarHttpService
@@ -42,12 +43,56 @@ class DorarHttpService
     private function request(string $url)
     {
         $timeoutSeconds = max(1, (int) ceil(((int) config('dorar.fetch_timeout_ms', 15000)) / 1000));
-        $response = Http::timeout($timeoutSeconds)->accept('*/*')->get($url);
-
-        if (!$response->successful()) {
-            throw new ApiException('Failed to fetch data: '.$response->reason(), $response->status());
+        $retries = max(1, (int) config('dorar.fetch_retries', 4));
+        $baseRetryMs = max(100, (int) config('dorar.fetch_retry_base_ms', 1000));
+        $transientStatuses = [429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 530];
+        $candidateUrls = [$url];
+        if (str_contains($url, 'https://www.dorar.net/')) {
+            $candidateUrls[] = str_replace('https://www.dorar.net/', 'https://dorar.net/', $url);
+        } elseif (str_contains($url, 'https://dorar.net/')) {
+            $candidateUrls[] = str_replace('https://dorar.net/', 'https://www.dorar.net/', $url);
         }
 
-        return $response;
+        $lastStatus = 502;
+        $lastReason = 'Unknown upstream error';
+
+        for ($attempt = 1; $attempt <= $retries; $attempt++) {
+            foreach ($candidateUrls as $candidateUrl) {
+                try {
+                    $response = Http::timeout($timeoutSeconds)
+                        ->accept('*/*')
+                        ->withHeaders([
+                            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                            'Accept-Language' => 'ar,en;q=0.9',
+                        ])
+                        ->get($candidateUrl);
+
+                    if ($response->successful()) {
+                        return $response;
+                    }
+
+                    $status = (int) $response->status();
+                    $reason = trim((string) $response->reason()) ?: '<none>';
+                    $lastStatus = $status > 0 ? $status : 502;
+                    $lastReason = $reason;
+
+                    $isTransient = in_array($status, $transientStatuses, true);
+                    if (!$isTransient || $attempt >= $retries) {
+                        break 2;
+                    }
+                } catch (ConnectionException $e) {
+                    $lastStatus = 502;
+                    $lastReason = $e->getMessage();
+                    if ($attempt >= $retries) {
+                        break 2;
+                    }
+                }
+            }
+
+            // Linear backoff to reduce pressure on transient upstream outages.
+            usleep((int) (($baseRetryMs * $attempt) * 1000));
+        }
+
+        throw new ApiException('Failed to fetch data: '.$lastReason, $lastStatus);
     }
 }

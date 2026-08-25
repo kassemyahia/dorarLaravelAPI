@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BookSearchController;
 use App\Http\Controllers\Api\DataController;
+use App\Http\Controllers\Api\EnrichmentController;
 use App\Http\Controllers\Api\HadithSearchController;
 use App\Http\Controllers\Api\MohdithSearchController;
 use App\Http\Controllers\Api\SharhSearchController;
@@ -22,8 +23,9 @@ Route::get('/docs', function () {
 
 Route::view('/api-docs', 'api-docs');
 Route::view('/tools/hadith-export', 'hadith-export');
+Route::view('/tools/enrichment', 'enrichment');
 
-Route::prefix('v1')->middleware('throttle:api')->group(function () {
+Route::prefix('v1')->group(function () {
     Route::middleware([NormalizeQueryOptions::class])->group(function () {
         Route::get('/api/hadith/search', [HadithSearchController::class, 'searchUsingAPIDorar']);
         Route::get('/site/hadith/search', [HadithSearchController::class, 'searchUsingSiteDorar']);
@@ -46,4 +48,16 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::get('/data/mohdith', [DataController::class, 'getMohdith']);
     Route::get('/data/rawi', [DataController::class, 'getRawi']);
     Route::get('/data/zoneSearch', [DataController::class, 'getZoneSearch']);
+
+    // Enrichment API endpoints
+    Route::prefix('api/enrichment')->group(function () {
+        Route::post('/import', [EnrichmentController::class, 'upload']);
+        Route::get('/jobs/{id}', [EnrichmentController::class, 'getStatus']);
+        Route::post('/jobs/{id}/pause', [EnrichmentController::class, 'pause']);
+        Route::post('/jobs/{id}/resume', [EnrichmentController::class, 'resume']);
+        Route::post('/jobs/{id}/cancel', [EnrichmentController::class, 'cancel']);
+        Route::get('/jobs/{id}/download/json', [EnrichmentController::class, 'downloadJson']);
+        Route::get('/jobs/{id}/download/csv', [EnrichmentController::class, 'downloadCsv']);
+        Route::get('/jobs/{id}/summary', [EnrichmentController::class, 'getSummary']);
+    });
 });

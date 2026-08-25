@@ -414,6 +414,7 @@
         const value = els.searchValue.value.trim() || "*";
         const delayMs = Math.max(0, Number(els.delayMs.value || 0));
         const removeHtml = els.removeHtml.checked;
+        const maxRetries = 3;
         let page = 1;
 
         while (true) {
@@ -436,9 +437,26 @@
           const url = `/v1/site/hadith/search?${makeQueryString(query)}`;
           appendLog(`GET ${url}`);
 
-          const resp = await fetch(url);
-          if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status} on page ${page}`);
+          let resp = null;
+          let lastErr = null;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              resp = await fetch(url);
+              if (resp.ok) {
+                break;
+              }
+              lastErr = new Error(`HTTP ${resp.status} on page ${page} (attempt ${attempt}/${maxRetries})`);
+            } catch (error) {
+              lastErr = error;
+            }
+
+            const waitMs = attempt * 1000;
+            appendLog(`retry page=${page} after ${waitMs}ms بسبب: ${lastErr?.message || "unknown error"}`);
+            await sleep(waitMs);
+          }
+
+          if (!resp || !resp.ok) {
+            throw new Error(lastErr?.message || `Failed request on page ${page}`);
           }
 
           const payload = await resp.json();
@@ -456,6 +474,7 @@
           appendLog(`page=${page} items=${pageData.length} hasNextPage=${hasNext}`);
 
           if (!hasNext) {
+            appendLog(`API indicates no more pages available (page ${page})`);
             break;
           }
 
