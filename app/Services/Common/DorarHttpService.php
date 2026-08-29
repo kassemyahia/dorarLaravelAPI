@@ -93,6 +93,6 @@ class DorarHttpService
             usleep((int) (($baseRetryMs * $attempt) * 1000));
         }
 
-        throw new ApiException('Failed to fetch data: '.$lastReason, $lastStatus);
+        throw new ApiException("Dorar HTTP {$lastStatus}: {$lastReason}", $lastStatus);
     }
 }

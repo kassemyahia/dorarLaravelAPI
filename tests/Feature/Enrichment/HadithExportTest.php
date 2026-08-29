@@ -4,6 +4,7 @@ namespace Tests\Feature\Enrichment;
 
 use App\Models\HadithImportJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class HadithExportTest extends TestCase
@@ -155,5 +156,34 @@ class HadithExportTest extends TestCase
         $response->assertJsonPath('data.total_records', 2);
         $response->assertJsonPath('data.successful', 2);
         $response->assertJsonPath('data.matched', 1);
+    }
+
+    public function test_partial_export_includes_unprocessed_original_hadiths_in_order(): void
+    {
+        Storage::fake('local');
+        $payload = file_get_contents(base_path('tests/Fixtures/by_book_sample.json'));
+        Storage::disk('local')->put('enrichment_uploads/partial.json', $payload);
+        $decoded = json_decode($payload, true);
+        $job = HadithImportJob::create([
+            'filename' => 'partial.json',
+            'original_file_path' => 'enrichment_uploads/partial.json',
+            'original_wrapper' => array_diff_key($decoded, ['hadiths' => true]),
+            'total_hadiths' => 2,
+            'processed_count' => 1,
+            'status' => 'failed',
+        ]);
+        $job->enrichmentRecords()->create([
+            'original_index' => 0,
+            'original_data' => $decoded['hadiths'][0],
+            'enriched_data' => $decoded['hadiths'][0] + ['dorar' => ['source' => 'Dorar']],
+            'status' => 'matched',
+            'matched' => true,
+        ]);
+
+        $data = $this->get("/v1/api/enrichment/jobs/{$job->id}/download/json")->assertOk()->json();
+        $this->assertCount(2, $data['hadiths']);
+        $this->assertSame([1, 2], array_column($data['hadiths'], 'idInBook'));
+        $this->assertArrayHasKey('dorar', $data['hadiths'][0]);
+        $this->assertArrayNotHasKey('dorar', $data['hadiths'][1]);
     }
 }

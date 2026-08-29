@@ -140,7 +140,7 @@ class HadithSearchService
 
     public function getOneHadithUsingSiteDorarById(string $hadithId): array
     {
-        $url = 'https://www.dorar.net/h/'.$hadithId;
+        $url = rtrim(config('dorar.site_url'), '/').'/h/'.$hadithId;
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
@@ -164,7 +164,7 @@ class HadithSearchService
 
     public function getAllSimilarHadithUsingSiteDorar(string $similarId): array
     {
-        $url = 'https://www.dorar.net/h/'.$similarId.'?sims=1';
+        $url = rtrim(config('dorar.site_url'), '/').'/h/'.$similarId.'?sims=1';
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
@@ -191,7 +191,7 @@ class HadithSearchService
 
     public function getAlternateHadithUsingSiteDorar(string $alternateId): array
     {
-        $url = 'https://www.dorar.net/h/'.$alternateId.'?alts=1';
+        $url = rtrim(config('dorar.site_url'), '/').'/h/'.$alternateId.'?alts=1';
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
@@ -215,7 +215,7 @@ class HadithSearchService
 
     public function getUsulHadithUsingSiteDorar(string $usulId): array
     {
-        $url = 'https://www.dorar.net/h/'.$usulId.'?osoul=1';
+        $url = rtrim(config('dorar.site_url'), '/').'/h/'.$usulId.'?osoul=1';
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {

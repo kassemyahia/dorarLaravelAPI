@@ -19,7 +19,7 @@ class MohdithSearchService
             throw new ApiException('Mohdith ID is required', 400);
         }
 
-        $url = 'https://www.dorar.net/hadith/mhd/'.$mohdithId;
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/mhd/'.$mohdithId;
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
             return $cached;

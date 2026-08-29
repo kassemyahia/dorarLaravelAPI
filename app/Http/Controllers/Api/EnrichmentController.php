@@ -131,7 +131,7 @@ class EnrichmentController extends BaseApiController
                 'percentage' => round($job->getProgressPercentage(), 2),
             ],
             'errorMessage' => $job->error_message,
-            'exportable' => $job->processed_count > 0,
+            'exportable' => (bool) $job->original_file_path,
             'stats' => [
                 'startedAt' => $job->started_at?->toIso8601String(),
                 'completedAt' => $job->completed_at?->toIso8601String(),
@@ -247,7 +247,7 @@ class EnrichmentController extends BaseApiController
             return $this->sendError('Job not found', 404);
         }
 
-        if ($job->processed_count === 0) {
+        if (! $job->original_file_path && ! $job->enrichmentRecords()->exists()) {
             return $this->sendError('No data to export', 422);
         }
 
@@ -266,7 +266,7 @@ class EnrichmentController extends BaseApiController
             return $this->sendError('Job not found', 404);
         }
 
-        if ($job->processed_count === 0) {
+        if (! $job->original_file_path && ! $job->enrichmentRecords()->exists()) {
             return $this->sendError('No data to export', 422);
         }
 

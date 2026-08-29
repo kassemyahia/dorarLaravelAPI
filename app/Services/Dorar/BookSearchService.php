@@ -19,7 +19,7 @@ class BookSearchService
             throw new ApiException('Book ID is required', 400);
         }
 
-        $url = 'https://www.dorar.net/hadith/book-card/'.$bookId;
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/book-card/'.$bookId;
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
             return $cached;

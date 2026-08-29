@@ -35,7 +35,7 @@ class SharhSearchService
             throw new ApiException('Sharh ID is required', 400);
         }
 
-        $xpath = $this->httpService->fetchDocument('https://www.dorar.net/hadith/sharh/'.$sharhId);
+        $xpath = $this->httpService->fetchDocument(rtrim(config('dorar.site_url'), '/').'/hadith/sharh/'.$sharhId);
         $article = $xpath->query('//article')?->item(0);
         if (! $article) {
             throw new ApiException('Invalid response structure from Dorar', 502);
@@ -81,7 +81,7 @@ class SharhSearchService
 
     public function getOneSharhByIdUsingSiteDorar(string $sharhId): array
     {
-        $url = 'https://www.dorar.net/hadith/sharh/'.$sharhId;
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/sharh/'.$sharhId;
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
             return $cached;
@@ -98,7 +98,7 @@ class SharhSearchService
             throw new ApiException('Text of sharh is required', 400);
         }
 
-        $url = 'https://www.dorar.net/hadith/search?q='.rawurlencode($text).($tab === 'specialist' ? '&all' : '');
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/search?q='.rawurlencode($text).($tab === 'specialist' ? '&all' : '');
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
             $cached['metadata']['specialist'] = $isForSpecialist;
@@ -128,7 +128,7 @@ class SharhSearchService
     public function getAllSharhUsingSiteDorar(array $queryParams, string $tab, bool $isRemoveHtml, bool $isForSpecialist): array
     {
         $query = str_replace('value=', 'q=', $this->serializeQueryParams($queryParams));
-        $url = 'https://www.dorar.net/hadith/search?'.$query.($tab === 'specialist' ? '&all' : '');
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/search?'.$query.($tab === 'specialist' ? '&all' : '');
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {

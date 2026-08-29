@@ -439,6 +439,7 @@
 
         let currentJobId = null;
         let pollInterval = null;
+        let pendingPolls = 0;
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
         // File selection
@@ -508,7 +509,7 @@
                 }
 
                 currentJobId = data.data.jobId;
-                showSuccess(`تم إنشاء المهمة #${currentJobId} بنجاح. جاري معالجة ${data.data.total} حديث...`);
+                showSuccess(`تمت إضافة المهمة #${currentJobId} إلى قائمة الانتظار (${data.data.total} حديث).`);
                 progressSection.classList.add('visible');
                 pauseResumeCancel.style.display = 'flex';
                 fileInput.disabled = true;
@@ -524,6 +525,7 @@
 
         // Polling
         function startPolling() {
+            if (pollInterval) return;
             pollStatus();
             pollInterval = setInterval(pollStatus, 2000);
         }
@@ -553,6 +555,13 @@
 
         function updateUI(job) {
             const progress = job.progress;
+
+            pendingPolls = job.status === 'pending' ? pendingPolls + 1 : 0;
+            if (pendingPolls >= 3) {
+                showError('The job is waiting for a queue worker. Run: php artisan queue:work --tries=1 --timeout=600');
+            } else if (!job.errorMessage && job.status !== 'failed') {
+                showError('');
+            }
 
             // Update progress bar
             const percentage = Math.round(progress.percentage);

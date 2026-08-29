@@ -11,16 +11,17 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ProcessHadithImportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries = 5;
 
     public int $timeout = 600;
 
-    public function __construct(public readonly int $importJobId, public readonly int $chunkSize = 10) {}
+    public function __construct(public readonly int $importJobId, public readonly int $chunkSize = 5) {}
 
     public function middleware(): array
     {
@@ -52,7 +53,7 @@ class ProcessHadithImportJob implements ShouldQueue
             } elseif ($job->status === 'processing') {
                 self::dispatch($job->id, $this->chunkSize);
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $job->update(['status' => 'failed', 'error_message' => $e->getMessage(), 'completed_at' => now()]);
         }
     }
@@ -61,6 +62,14 @@ class ProcessHadithImportJob implements ShouldQueue
     {
         $q = $job->enrichmentRecords();
         $counts = (clone $q)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $job->update(['current_index' => $next, 'processed_count' => $counts->sum(), 'matched_count' => $counts['matched'] ?? 0, 'not_found_count' => $counts['not_found'] ?? 0, 'needs_review_count' => $counts['needs_review'] ?? 0, 'request_failed_count' => $counts['request_failed'] ?? 0, 'parsing_failed_count' => $counts['parsing_failed'] ?? 0, 'failed_count' => ($counts['request_failed'] ?? 0) + ($counts['parsing_failed'] ?? 0)]);
+        $lastError = $job->enrichmentRecords()->whereIn('status', ['request_failed', 'parsing_failed'])->latest('original_index')->value('error_message');
+        $job->update(['current_index' => $next, 'processed_count' => $counts->sum(), 'matched_count' => $counts['matched'] ?? 0, 'not_found_count' => $counts['not_found'] ?? 0, 'needs_review_count' => $counts['needs_review'] ?? 0, 'request_failed_count' => $counts['request_failed'] ?? 0, 'parsing_failed_count' => $counts['parsing_failed'] ?? 0, 'failed_count' => ($counts['request_failed'] ?? 0) + ($counts['parsing_failed'] ?? 0), 'error_message' => $lastError]);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        HadithImportJob::whereKey($this->importJobId)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->update(['status' => 'failed', 'error_message' => $exception->getMessage(), 'completed_at' => now()]);
     }
 }

@@ -28,7 +28,7 @@ php artisan serve
 In a second terminal, start the resumable chunk worker:
 
 ```bash
-php artisan queue:work --tries=1 --timeout=600
+php artisan queue:work --tries=1 --timeout=600 -vvv
 ```
 
 ## Run Locally
@@ -53,6 +53,10 @@ Upstream URLs and failure behavior can be configured with `DORAR_SITE_URL`,
 `DORAR_API_URL`, `FETCH_TIMEOUT`, `FETCH_RETRIES`, and
 `FETCH_RETRY_BASE_MS`. HTTP 403 means permitted upstream access is required;
 the application reports it and does not attempt to bypass Cloudflare.
+
+`QUEUE_CONNECTION=database` means `php artisan serve` does not execute queued
+imports. Keep the server and queue worker running in separate terminals. As an
+alternative, `composer run dev` starts both processes together for development.
 
 ## Documentation
 

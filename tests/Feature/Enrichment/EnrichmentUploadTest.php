@@ -201,7 +201,11 @@ class EnrichmentUploadTest extends TestCase
 
     public function test_enrichment_page_contains_csrf_token(): void
     {
-        $this->get('/tools/enrichment')->assertOk()->assertSee('name="csrf-token"', false)->assertSee('X-CSRF-TOKEN');
+        $this->get('/tools/enrichment')->assertOk()
+            ->assertSee('name="csrf-token"', false)
+            ->assertSee('X-CSRF-TOKEN')
+            ->assertSee('The job is waiting for a queue worker.')
+            ->assertSee('if (pollInterval) return;', false);
     }
 
     private function createJsonFile(array $data): UploadedFile

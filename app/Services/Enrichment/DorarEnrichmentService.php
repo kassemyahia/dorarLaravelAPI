@@ -67,7 +67,7 @@ class DorarEnrichmentService
             return $result;
         } catch (ApiException $e) {
             $type = match (true) {
-                $e->getCode() === 403 => 'FORBIDDEN', $e->getCode() === 429 => 'RATE_LIMITED', str_contains(strtolower($e->getMessage()), 'timeout') => 'TIMEOUT', str_contains(strtolower($e->getMessage()), 'structure'), str_contains(strtolower($e->getMessage()), 'parsing') => 'PARSING_FAILED', default => 'REQUEST_FAILED'
+                $e->getCode() === 403 => 'REQUEST_FAILED', $e->getCode() === 429 => 'RATE_LIMITED', str_contains(strtolower($e->getMessage()), 'timeout') => 'TIMEOUT', str_contains(strtolower($e->getMessage()), 'structure'), str_contains(strtolower($e->getMessage()), 'parsing') => 'PARSING_FAILED', default => 'REQUEST_FAILED'
             };
 
             return $this->result(false, 0, true, $type, $e->getMessage());
