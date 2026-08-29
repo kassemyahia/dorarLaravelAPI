@@ -11,8 +11,7 @@ class BookSearchService
     public function __construct(
         private readonly DorarHttpService $httpService,
         private readonly CacheService $cacheService,
-    ) {
-    }
+    ) {}
 
     public function getOneBookByIdUsingSiteDorar(string $bookId): array
     {
@@ -27,7 +26,7 @@ class BookSearchService
         }
 
         $response = $this->httpService->fetchJson($url);
-        if (!is_string($response)) {
+        if (! is_string($response)) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 
@@ -35,7 +34,7 @@ class BookSearchService
         $xpath = $this->httpService->toXPath($html);
 
         $h5 = $xpath->query('//h5')?->item(0);
-        if (!$h5) {
+        if (! $h5) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 

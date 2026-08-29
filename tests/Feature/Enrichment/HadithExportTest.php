@@ -48,8 +48,8 @@ class HadithExportTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json();
         $this->assertIsArray($data);
-        $this->assertCount(1, $data);
-        $this->assertEquals('الحديث', $data[0]['arabic']);
+        $this->assertCount(1, $data['hadiths']);
+        $this->assertEquals('الحديث', $data['hadiths'][0]['arabic']);
     }
 
     /**

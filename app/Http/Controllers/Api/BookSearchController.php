@@ -7,9 +7,7 @@ use App\Services\Dorar\BookSearchService;
 
 class BookSearchController extends BaseApiController
 {
-    public function __construct(private readonly BookSearchService $service)
-    {
-    }
+    public function __construct(private readonly BookSearchService $service) {}
 
     public function getOneBookByIdUsingSiteDorar(BookIdRequest $request, string $id)
     {

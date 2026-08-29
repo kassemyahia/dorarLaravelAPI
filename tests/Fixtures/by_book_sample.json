@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "metadata": {"id": 1, "length": 2, "english": {"title": "Sahih al-Bukhari"}, "arabic": {"title": "صحيح البخاري"}},
+  "chapters": [{"id": 1, "bookId": 1, "arabic": "بدء الوحي", "english": "Revelation"}],
+  "hadiths": [
+    {"id": 1, "idInBook": 1, "chapterId": 1, "bookId": 1, "arabic": "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", "english": {"narrator": "Umar", "text": "Actions are by intentions."}},
+    {"id": 2, "idInBook": 2, "chapterId": 1, "bookId": 1, "arabic": "الإسلام بني على خمس", "english": {"narrator": "Ibn Umar", "text": "Islam is built on five."}}
+  ]
+}

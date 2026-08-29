@@ -25,22 +25,35 @@ class EnrichmentController extends BaseApiController
         try {
             $file = $request->file('file');
 
-            // Validate JSON structure
             $fileContent = $file->get();
-            $hadiths = json_decode($fileContent, associative: true);
+            try {
+                $data = json_decode($fileContent, true, flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                return $this->sendError('Invalid JSON: '.$e->getMessage(), 422);
+            }
+
+            $hadiths = $data['hadiths'] ?? null;
 
             if (! is_array($hadiths) || empty($hadiths)) {
-                return $this->sendError('Invalid JSON: expected non-empty array of hadiths', 422);
+                return $this->sendError(
+                    'Invalid JSON: expected non-empty hadiths array',
+                    422
+                );
             }
 
-            // Sample validation: check first hadith structure
-            $firstHadith = reset($hadiths);
-            if (! is_array($firstHadith)) {
-                return $this->sendError('Invalid JSON: array items must be objects', 422);
+            $errors = [];
+            foreach ($hadiths as $index => $hadith) {
+                if (! is_array($hadith)) {
+                    $errors[] = ['index' => $index, 'field' => null, 'message' => 'Hadith must be an object'];
+                } elseif (! isset($hadith['arabic']) || ! is_string($hadith['arabic']) || trim($hadith['arabic']) === '') {
+                    $errors[] = ['index' => $index, 'field' => 'arabic', 'message' => 'A non-empty Arabic string is required'];
+                }
+                if (count($errors) >= 100) {
+                    break;
+                }
             }
-
-            if (! isset($firstHadith['arabic']) || ! isset($firstHadith['english'])) {
-                return $this->sendError('Invalid hadith structure: missing required fields (arabic, english)', 422);
+            if ($errors) {
+                return $this->sendError('Invalid hadith records', 422, $errors);
             }
 
             // Store file
@@ -52,11 +65,14 @@ class EnrichmentController extends BaseApiController
             $importJob = HadithImportJob::create([
                 'filename' => $file->getClientOriginalName(),
                 'original_file_path' => $filePath,
+                'original_wrapper' => array_diff_key($data, ['hadiths' => true]),
                 'total_hadiths' => count($hadiths),
                 'processed_count' => 0,
                 'matched_count' => 0,
                 'not_found_count' => 0,
                 'failed_count' => 0,
+                'request_failed_count' => 0,
+                'parsing_failed_count' => 0,
                 'needs_review_count' => 0,
                 'current_index' => 0,
                 'status' => 'pending',
@@ -109,9 +125,13 @@ class EnrichmentController extends BaseApiController
                 'matched' => $job->matched_count,
                 'notFound' => $job->not_found_count,
                 'failed' => $job->failed_count,
+                'requestFailed' => $job->request_failed_count,
+                'parsingFailed' => $job->parsing_failed_count,
                 'needsReview' => $job->needs_review_count,
                 'percentage' => round($job->getProgressPercentage(), 2),
             ],
+            'errorMessage' => $job->error_message,
+            'exportable' => $job->processed_count > 0,
             'stats' => [
                 'startedAt' => $job->started_at?->toIso8601String(),
                 'completedAt' => $job->completed_at?->toIso8601String(),
@@ -219,7 +239,7 @@ class EnrichmentController extends BaseApiController
      * Download enriched hadiths as JSON.
      * GET /v1/api/enrichment/jobs/{id}/download/json
      */
-    public function downloadJson(int $id): JsonResponse
+    public function downloadJson(int $id)
     {
         $job = HadithImportJob::find($id);
 
@@ -231,13 +251,7 @@ class EnrichmentController extends BaseApiController
             return $this->sendError('No data to export', 422);
         }
 
-        $json = $this->exportService->exportAsJson($job);
-
-        return response()->json(
-            json_decode($json, associative: true),
-            200,
-            ['Content-Disposition' => 'attachment; filename="hadith_enriched_'.$job->id.'.json"'],
-        );
+        return response($this->exportService->exportAsJson($job), 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="hadith_enriched_'.$job->id.'.json"']);
     }
 
     /**

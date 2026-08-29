@@ -12,11 +12,14 @@ return new class extends Migration
             $table->id();
             $table->string('filename');
             $table->string('original_file_path')->nullable();
+            $table->json('original_wrapper')->nullable();
             $table->integer('total_hadiths')->default(0);
             $table->integer('processed_count')->default(0);
             $table->integer('matched_count')->default(0);
             $table->integer('not_found_count')->default(0);
             $table->integer('failed_count')->default(0);
+            $table->integer('request_failed_count')->default(0);
+            $table->integer('parsing_failed_count')->default(0);
             $table->integer('needs_review_count')->default(0);
             $table->integer('current_index')->default(0);
             $table->enum('status', ['pending', 'processing', 'paused', 'completed', 'failed', 'cancelled'])->default('pending');

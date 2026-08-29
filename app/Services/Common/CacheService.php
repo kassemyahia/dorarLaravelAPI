@@ -8,7 +8,7 @@ class CacheService
 {
     public function getCachedResponse(string $key): ?array
     {
-        if (!Cache::has($key)) {
+        if (! Cache::has($key)) {
             return null;
         }
 

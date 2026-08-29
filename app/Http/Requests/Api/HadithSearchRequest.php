@@ -14,7 +14,7 @@ class HadithSearchRequest extends BaseApiRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('page')) {
+        if (! $this->has('page')) {
             $this->merge(['page' => 1]);
         }
     }

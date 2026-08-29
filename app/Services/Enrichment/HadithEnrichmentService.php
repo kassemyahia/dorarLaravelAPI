@@ -5,152 +5,42 @@ namespace App\Services\Enrichment;
 use App\Models\HadithEnrichmentRecord;
 use App\Models\HadithImportJob;
 
-/**
- * Orchestrates the hadith enrichment workflow.
- * Processes hadiths, enriches them, and stores results.
- */
 class HadithEnrichmentService
 {
-    public function __construct(
-        private readonly DorarEnrichmentService $dorarService,
-    ) {}
+    public function __construct(private readonly DorarEnrichmentService $dorar) {}
 
-    /**
-     * Enrich a batch of hadiths.
-     * Returns summary statistics.
-     */
-    public function enrichBatch(
-        HadithImportJob $job,
-        array $hadiths,
-        int $startIndex = 0,
-    ): array {
-        $results = [
-            'processed' => 0,
-            'matched' => 0,
-            'not_found' => 0,
-            'failed' => 0,
-            'needs_review' => 0,
-            'errors' => [],
-        ];
-
-        foreach ($hadiths as $index => $hadith) {
-            $currentIndex = $startIndex + $index;
-
-            try {
-                $enrichment = $this->enrichSingleHadith($job, $hadith, $currentIndex);
-
-                $results['processed']++;
-
-                if ($enrichment['error_type'] === null) {
-                    if ($enrichment['matched']) {
-                        $results['matched']++;
-                    } else {
-                        $results['not_found']++;
-                    }
-
-                    if ($enrichment['needs_review']) {
-                        $results['needs_review']++;
-                    }
-                } else {
-                    $results['failed']++;
-                    $results['errors'][] = [
-                        'index' => $currentIndex,
-                        'hadith_id' => $hadith['id'] ?? 'unknown',
-                        'error_type' => $enrichment['error_type'],
-                        'error_message' => $enrichment['error_message'],
-                    ];
-                }
-            } catch (\Exception $e) {
-                $results['failed']++;
-                $results['processed']++;
-
-                $errorData = [
-                    'index' => $currentIndex,
-                    'hadith_id' => $hadith['id'] ?? 'unknown',
-                    'error_type' => 'UNKNOWN',
-                    'error_message' => $e->getMessage(),
-                ];
-
-                $results['errors'][] = $errorData;
-
-                // Still create a failed record
-                HadithEnrichmentRecord::create([
-                    'import_job_id' => $job->id,
-                    'original_index' => $currentIndex,
-                    'hadith_id' => $hadith['id'] ?? null,
-                    'original_data' => $hadith,
-                    'enriched_data' => null,
-                    'status' => 'failed',
-                    'error_message' => $e->getMessage(),
-                    'error_type' => 'UNKNOWN',
-                    'matched' => false,
-                    'confidence' => 0.0,
-                    'needs_review' => false,
-                    'processed_at' => now(),
-                ]);
+    public function enrichBatch(HadithImportJob $job, array $hadiths, int $startIndex = 0): void
+    {
+        foreach ($hadiths as $offset => $hadith) {
+            $index = $startIndex + $offset;
+            if (HadithEnrichmentRecord::where(['import_job_id' => $job->id, 'original_index' => $index])->where('status', '!=', 'pending')->exists()) {
+                continue;
             }
-        }
+            if (! is_array($hadith)) {
+                $this->store($job, $index, [], 'parsing_failed', 'PARSING_FAILED', 'Hadith must be an object');
 
-        return $results;
+                continue;
+            }
+            $text = $hadith['arabic'] ?? null;
+            if (! is_string($text) || trim($text) === '') {
+                $this->store($job, $index, $hadith, 'parsing_failed', 'PARSING_FAILED', 'Missing non-empty arabic field');
+
+                continue;
+            }
+            $result = $this->dorar->enrichHadith($text, isset($hadith['bookId']) ? (string) $hadith['bookId'] : null, $job->delay_ms, $job->confidence_threshold_low, $job->confidence_threshold_medium, $job->original_wrapper['metadata']['english']['title'] ?? null, $hadith['idInBook'] ?? null);
+            $status = match ($result['error_type']) {
+                null => $result['needs_review'] ? 'needs_review' : 'matched', 'NOT_FOUND' => 'not_found', 'PARSING_FAILED' => 'parsing_failed', 'MATCH_LOW_CONFIDENCE' => 'needs_review', default => 'request_failed'
+            };
+            $enriched = $hadith;
+            $enriched['dorar'] = $result['dorar'];
+            $enriched['matching'] = ['matched' => $result['matched'], 'confidence' => $result['confidence'], 'needsReview' => $result['needs_review'], 'status' => $status];
+            HadithEnrichmentRecord::updateOrCreate(['import_job_id' => $job->id, 'original_index' => $index], ['hadith_id' => $hadith['id'] ?? null, 'original_data' => $hadith, 'enriched_data' => $enriched, 'status' => $status, 'error_message' => $result['error_message'], 'error_type' => $result['error_type'], 'matched' => $result['matched'], 'confidence' => $result['confidence'], 'needs_review' => $result['needs_review'], 'processed_at' => now()]);
+        }
     }
 
-    /**
-     * Enrich a single hadith record.
-     */
-    private function enrichSingleHadith(
-        HadithImportJob $job,
-        array $hadith,
-        int $index,
-    ): array {
-        // Extract Arabic text
-        $arabicText = $hadith['arabic'] ?? null;
-        if (! $arabicText || trim($arabicText) === '') {
-            return [
-                'matched' => false,
-                'confidence' => 0.0,
-                'needs_review' => false,
-                'error_type' => 'PARSING_FAILED',
-                'error_message' => 'No Arabic text found in hadith',
-                'dorar' => null,
-            ];
-        }
-
-        // Enrich from Dorar
-        $enrichment = $this->dorarService->enrichHadith(
-            hadithText: $arabicText,
-            bookId: $hadith['bookId'] ?? null,
-            delayMs: $job->delay_ms,
-        );
-
-        // Prepare enriched data
-        $enrichedData = array_merge($hadith, [
-            'dorar' => $enrichment['dorar'],
-            'matching' => [
-                'matched' => $enrichment['matched'],
-                'confidence' => $enrichment['confidence'],
-                'needs_review' => $enrichment['needs_review'],
-            ],
-        ]);
-
-        // Determine record status
-        $recordStatus = $enrichment['error_type'] === null ? 'success' : 'failed';
-
-        // Store record
-        HadithEnrichmentRecord::create([
-            'import_job_id' => $job->id,
-            'original_index' => $index,
-            'hadith_id' => $hadith['id'] ?? null,
-            'original_data' => $hadith,
-            'enriched_data' => $enrichedData,
-            'status' => $recordStatus,
-            'error_message' => $enrichment['error_message'] ?? null,
-            'error_type' => $enrichment['error_type'],
-            'matched' => $enrichment['matched'],
-            'confidence' => $enrichment['confidence'],
-            'needs_review' => $enrichment['needs_review'],
-            'processed_at' => now(),
-        ]);
-
-        return $enrichment;
+    private function store(HadithImportJob $job, int $index, array $data, string $status, string $type, string $message): void
+    {
+        $enriched = $data + ['dorar' => ['rawi' => null, 'mohdith' => null, 'mohdithId' => null, 'book' => null, 'bookId' => null, 'numberOrPage' => null, 'grade' => null, 'explainGrade' => null, 'takhrij' => null, 'hadithId' => null, 'url' => null, 'sharh' => null, 'source' => 'Dorar'], 'matching' => ['matched' => false, 'confidence' => 0, 'needsReview' => true, 'status' => $status]];
+        HadithEnrichmentRecord::updateOrCreate(['import_job_id' => $job->id, 'original_index' => $index], ['original_data' => $data, 'enriched_data' => $enriched, 'status' => $status, 'error_type' => $type, 'error_message' => $message, 'matched' => false, 'confidence' => 0, 'needs_review' => true, 'processed_at' => now()]);
     }
 }

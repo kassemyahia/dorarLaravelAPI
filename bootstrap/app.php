@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (ValidationException $e, Request $request) {
-            if (!$request->is('v1/*')) {
+            if (! $request->is('v1/*')) {
                 return null;
             }
 
@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (ApiException $e, Request $request) {
-            if (!$request->is('v1/*')) {
+            if (! $request->is('v1/*')) {
                 return null;
             }
 
@@ -45,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if (!$request->is('v1/*')) {
+            if (! $request->is('v1/*')) {
                 return null;
             }
 
@@ -65,8 +65,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 404);
         });
 
-        $exceptions->render(function (\Throwable $e, Request $request) {
-            if (!$request->is('v1/*')) {
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (! $request->is('v1/*')) {
                 return null;
             }
 

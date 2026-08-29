@@ -7,9 +7,7 @@ use App\Services\Common\CacheService;
 
 class DataService
 {
-    public function __construct(private readonly CacheService $cacheService)
-    {
-    }
+    public function __construct(private readonly CacheService $cacheService) {}
 
     public function getData(string $file): array
     {
@@ -20,14 +18,14 @@ class DataService
         }
 
         $path = base_path('data/'.$file.'.json');
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             throw new ApiException('Resource not found', 404);
         }
 
         $content = file_get_contents($path);
         $data = json_decode((string) $content, true);
 
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             throw new ApiException('Error parsing response', 502);
         }
 

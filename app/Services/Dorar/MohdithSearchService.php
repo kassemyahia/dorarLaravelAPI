@@ -11,8 +11,7 @@ class MohdithSearchService
     public function __construct(
         private readonly DorarHttpService $httpService,
         private readonly CacheService $cacheService,
-    ) {
-    }
+    ) {}
 
     public function getOneMohdithByIdUsingSiteDorar(string $mohdithId): array
     {
@@ -28,7 +27,7 @@ class MohdithSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $h4 = $xpath->query('//h4')?->item(0);
-        if (!$h4) {
+        if (! $h4) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 

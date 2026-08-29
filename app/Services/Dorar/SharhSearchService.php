@@ -11,8 +11,7 @@ class SharhSearchService
     public function __construct(
         private readonly DorarHttpService $httpService,
         private readonly CacheService $cacheService,
-    ) {
-    }
+    ) {}
 
     private function serializeQueryParams(array $params): string
     {
@@ -38,7 +37,7 @@ class SharhSearchService
 
         $xpath = $this->httpService->fetchDocument('https://www.dorar.net/hadith/sharh/'.$sharhId);
         $article = $xpath->query('//article')?->item(0);
-        if (!$article) {
+        if (! $article) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 
@@ -58,7 +57,7 @@ class SharhSearchService
             $sharhNode = $sharhNode->nextSibling;
         }
 
-        if (!$sharhNode) {
+        if (! $sharhNode) {
             throw new ApiException('Sharh content not found', 404);
         }
 
@@ -109,7 +108,7 @@ class SharhSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $tabElement = $xpath->query('//*[@id="'.$tab.'"]')?->item(0);
-        if (!$tabElement) {
+        if (! $tabElement) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 
@@ -138,7 +137,7 @@ class SharhSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $tabElement = $xpath->query('//*[@id="'.$tab.'"]')?->item(0);
-        if (!$tabElement) {
+        if (! $tabElement) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 

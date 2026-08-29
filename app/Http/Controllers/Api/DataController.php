@@ -6,9 +6,7 @@ use App\Services\DataService;
 
 class DataController extends BaseApiController
 {
-    public function __construct(private readonly DataService $dataService)
-    {
-    }
+    public function __construct(private readonly DataService $dataService) {}
 
     public function getBook()
     {

@@ -7,9 +7,7 @@ use App\Services\Dorar\MohdithSearchService;
 
 class MohdithSearchController extends BaseApiController
 {
-    public function __construct(private readonly MohdithSearchService $service)
-    {
-    }
+    public function __construct(private readonly MohdithSearchService $service) {}
 
     public function getOneMohdithByIdUsingSiteDorar(MohdithIdRequest $request, string $id)
     {

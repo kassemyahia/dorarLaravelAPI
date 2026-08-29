@@ -8,6 +8,8 @@ return [
     'fetch_timeout_ms' => (int) env('FETCH_TIMEOUT', 15000),
     'fetch_retries' => (int) env('FETCH_RETRIES', 4),
     'fetch_retry_base_ms' => (int) env('FETCH_RETRY_BASE_MS', 1000),
+    'site_url' => env('DORAR_SITE_URL', 'https://www.dorar.net'),
+    'api_url' => env('DORAR_API_URL', 'https://dorar.net'),
     'hadith_api_page_size' => (int) env('HADITH_API_PAGE_SIZE', 15),
     'hadith_site_page_size' => (int) env('HADITH_SITE_PAGE_SIZE', 30),
 ];

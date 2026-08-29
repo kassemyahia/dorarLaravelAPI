@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Enrichment;
 
+use App\Exceptions\ApiException;
 use App\Models\HadithNormalizedCache;
 use App\Services\Dorar\HadithSearchService;
 use App\Services\Enrichment\ArabicNormalizer;
@@ -125,5 +126,25 @@ class DorarEnrichmentServiceTest extends TestCase
         // Should return a result
         $this->assertIsArray($result);
         $this->assertArrayHasKey('matched', $result);
+    }
+
+    public function test_selects_correct_candidate_when_it_is_not_first(): void
+    {
+        $text = 'إنما الأعمال بالنيات';
+        $this->hadithSearchServiceMock->shouldReceive('searchUsingSiteDorar')->once()->andReturn(['data' => [
+            ['hadith' => 'نص مختلف تماما', 'hadithId' => 'wrong'],
+            ['hadith' => 'انما الاعمال بالنيات', 'hadithId' => 'right'],
+        ]]);
+        $result = $this->service->enrichHadith($text, delayMs: 0);
+        $this->assertSame('right', $result['dorar']['hadithId']);
+        $this->assertTrue($result['matched']);
+    }
+
+    public function test_transient_failure_is_not_cached(): void
+    {
+        $this->hadithSearchServiceMock->shouldReceive('searchUsingSiteDorar')->twice()->andThrow(new ApiException('rate limited', 429));
+        $this->assertSame('RATE_LIMITED', $this->service->enrichHadith('نص مؤقت', delayMs: 0)['error_type']);
+        $this->assertSame('RATE_LIMITED', $this->service->enrichHadith('نص مؤقت', delayMs: 0)['error_type']);
+        $this->assertDatabaseMissing('hadith_normalized_caches', ['original_text' => 'نص مؤقت']);
     }
 }

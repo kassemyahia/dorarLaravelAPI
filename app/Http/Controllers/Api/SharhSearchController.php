@@ -9,9 +9,7 @@ use App\Services\Dorar\SharhSearchService;
 
 class SharhSearchController extends BaseApiController
 {
-    public function __construct(private readonly SharhSearchService $service)
-    {
-    }
+    public function __construct(private readonly SharhSearchService $service) {}
 
     public function getOneSharhByIdUsingSiteDorar(SharhIdRequest $request, string $id)
     {

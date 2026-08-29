@@ -16,11 +16,12 @@ class BaseApiController extends Controller
         ], $statusCode);
     }
 
-    protected function sendError(string $message, int $statusCode = 400): JsonResponse
+    protected function sendError(string $message, int $statusCode = 400, array $errors = []): JsonResponse
     {
         return response()->json([
             'status' => 'error',
             'message' => $message,
+            'errors' => $errors,
         ], $statusCode);
     }
 }

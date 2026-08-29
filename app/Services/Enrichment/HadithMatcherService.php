@@ -2,123 +2,82 @@
 
 namespace App\Services\Enrichment;
 
-/**
- * Calculates confidence scores for hadith matches.
- * Evaluates Dorar results against the query.
- */
 class HadithMatcherService
 {
-    private float $highConfidenceThreshold = 0.95;
+    private float $high = .95;
 
-    private float $mediumConfidenceThreshold = 0.80;
+    private float $medium = .8;
 
     public function __construct(private readonly ArabicNormalizer $normalizer) {}
 
-    public function setThresholds(float $high, float $medium): void
-    {
-        $this->highConfidenceThreshold = $high;
-        $this->mediumConfidenceThreshold = $medium;
-    }
-
-    /**
-     * Calculate confidence score for a potential match.
-     *
-     * Scoring logic:
-     * - Text similarity: Use normalized text comparison
-     * - Book ID match: Strong signal (when available)
-     * - Rawi (narrator) match: Medium signal
-     *
-     * Returns confidence score 0-1.
-     */
     public function calculateConfidence(
         string $queryText,
         ?string $dorarText = null,
         ?string $queryBookId = null,
         ?string $dorarBookId = null,
         ?string $dorarRawi = null,
+        array $bookAliases = [],
+        ?string $dorarBook = null,
+        int|string|null $number = null,
+        int|string|null $dorarNumber = null,
     ): float {
         if (! $dorarText) {
             return 0.0;
         }
-
-        $queryNorm = $this->normalizer->normalize($queryText);
-        $dorarNorm = $this->normalizer->normalize($dorarText);
-
-        // If texts are identical after normalization, high confidence
-        if ($queryNorm === $dorarNorm) {
-            $confidence = 0.98;
-        } else {
-            // Use Levenshtein distance for similarity
-            $similarity = $this->calculateTextSimilarity($queryNorm, $dorarNorm);
-            $confidence = $similarity;
+        $a = $this->normalizer->normalize($queryText);
+        $b = $this->normalizer->normalize($dorarText);
+        if ($a === $b) {
+            return ($queryBookId && $dorarBookId && $queryBookId === $dorarBookId) ? 1.0 : .98;
         }
 
-        // Boost confidence if book ID matches
-        if ($queryBookId && $dorarBookId && (string) $queryBookId === (string) $dorarBookId) {
-            $confidence = min(1.0, $confidence + 0.05);
+        $ta = array_unique($this->normalizer->tokens($a));
+        $tb = array_unique($this->normalizer->tokens($b));
+        $union = array_unique([...$ta, ...$tb]);
+        $jaccard = count($union) ? count(array_intersect($ta, $tb)) / count($union) : 0;
+        $containment = min(mb_strlen($a), mb_strlen($b)) > 20 && (str_contains($a, $b) || str_contains($b, $a)) ? .95 : 0;
+        $score = max($jaccard, $containment);
+        if ($dorarBook && collect($bookAliases)->contains(fn ($alias) => str_contains($this->normalizer->normalize($dorarBook), $this->normalizer->normalize($alias)))) {
+            $score += .03;
+        }
+        if ($number !== null && $dorarNumber !== null && preg_replace('/\D/u', '', (string) $number) === preg_replace('/\D/u', '', (string) $dorarNumber)) {
+            $score += .02;
         }
 
-        // Slight boost for having narrator info
-        if ($dorarRawi && trim($dorarRawi) !== '') {
-            $confidence = min(1.0, $confidence + 0.02);
-        }
-
-        return round($confidence, 4);
+        return round(min(1, $score), 4);
     }
 
-    /**
-     * Calculate text similarity using normalized Levenshtein distance.
-     * Returns 0.0 to 1.0, where 1.0 is identical.
-     */
-    private function calculateTextSimilarity(string $text1, string $text2): float
+    public function bestCandidate(string $text, array $candidates, array $signals = []): array
     {
-        $len1 = mb_strlen($text1);
-        $len2 = mb_strlen($text2);
-
-        if ($len1 === 0 && $len2 === 0) {
-            return 1.0;
+        $scored = [];
+        foreach ($candidates as $index => $candidate) {
+            $score = $this->calculateConfidence($text, $candidate['hadith'] ?? null,
+                bookAliases: $signals['book_aliases'] ?? [], dorarBook: $candidate['book'] ?? null,
+                number: $signals['number'] ?? null, dorarNumber: $candidate['numberOrPage'] ?? null);
+            $scored[] = ['index' => $index, 'score' => $score, 'candidate' => $candidate];
         }
+        usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
 
-        if ($len1 === 0 || $len2 === 0) {
-            return 0.0;
-        }
-
-        $distance = levenshtein($text1, $text2);
-        $maxLen = max($len1, $len2);
-
-        return 1.0 - ($distance / $maxLen);
+        return ['best' => $scored[0] ?? null, 'diagnostics' => array_map(fn ($x) => ['index' => $x['index'], 'score' => $x['score'], 'hadithId' => $x['candidate']['hadithId'] ?? null], array_slice($scored, 0, 5))];
     }
 
-    /**
-     * Classify confidence level.
-     */
+    public function setThresholds(float $high, float $medium): void
+    {
+        $this->high = $high;
+        $this->medium = $medium;
+    }
+
     public function getConfidenceLevel(float $confidence): string
     {
-        if ($confidence >= $this->highConfidenceThreshold) {
-            return 'high';
-        }
-
-        if ($confidence >= $this->mediumConfidenceThreshold) {
-            return 'medium';
-        }
-
-        return 'low';
+        return $confidence >= $this->high ? 'high' : ($confidence >= $this->medium ? 'medium' : 'low');
     }
 
-    /**
-     * Determine if match should be marked for review.
-     */
     public function shouldMarkForReview(float $confidence): bool
     {
-        return $confidence < $this->mediumConfidenceThreshold;
+        return $confidence < $this->medium;
     }
 
-    /**
-     * Evaluate if a match is acceptable.
-     * Low confidence matches are flagged for review.
-     */
     public function isAcceptableMatch(float $confidence): bool
     {
-        return ! $this->shouldMarkForReview($confidence);
+        return $confidence >= $this->medium;
     }
 }

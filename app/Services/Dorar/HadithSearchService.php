@@ -14,8 +14,7 @@ class HadithSearchService
         private readonly DorarHttpService $httpService,
         private readonly CacheService $cacheService,
         private readonly HtmlParserService $parser,
-    ) {
-    }
+    ) {}
 
     private function serializeQueryParams(array $params): string
     {
@@ -36,7 +35,7 @@ class HadithSearchService
     public function searchUsingAPIDorar(array $queryParams, bool $isRemoveHTML): array
     {
         $query = str_replace('value=', 'skey=', $this->serializeQueryParams($queryParams));
-        $url = 'https://dorar.net/dorar_api.json?'.$query;
+        $url = rtrim(config('dorar.api_url'), '/').'/dorar_api.json?'.$query;
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
@@ -44,12 +43,12 @@ class HadithSearchService
         }
 
         $data = $this->httpService->fetchJson($url);
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             throw new ApiException('Invalid response from Dorar API', 502);
         }
 
         $resultHtml = $data['ahadith']['result'] ?? null;
-        if (!is_string($resultHtml) || $resultHtml === '') {
+        if (! is_string($resultHtml) || $resultHtml === '') {
             throw new ApiException('Invalid response from Dorar API', 502);
         }
 
@@ -58,7 +57,7 @@ class HadithSearchService
 
         $result = [];
         foreach ($nodes as $node) {
-            if (!($node instanceof DOMElement)) {
+            if (! ($node instanceof DOMElement)) {
                 continue;
             }
 
@@ -85,7 +84,7 @@ class HadithSearchService
     public function searchUsingSiteDorar(array $queryParams, string $tab, bool $isRemoveHTML, bool $isForSpecialist): array
     {
         $query = str_replace('value=', 'q=', $this->serializeQueryParams($queryParams));
-        $url = 'https://www.dorar.net/hadith/search?'.$query.($tab === 'specialist' ? '&all' : '');
+        $url = rtrim(config('dorar.site_url'), '/').'/hadith/search?'.$query.($tab === 'specialist' ? '&all' : '');
 
         $cached = $this->cacheService->getCachedResponse($url);
         if ($cached) {
@@ -94,7 +93,7 @@ class HadithSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $tabElement = $xpath->query('//*[@id="'.$tab.'"]')?->item(0);
-        if (!$tabElement) {
+        if (! $tabElement) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 
@@ -110,7 +109,7 @@ class HadithSearchService
         $blocks = $xpath->query('.//*[contains(@class,"border-bottom")]', $tabElement) ?: [];
         $result = [];
         foreach ($blocks as $block) {
-            if (!($block instanceof DOMElement)) {
+            if (! ($block instanceof DOMElement)) {
                 continue;
             }
 
@@ -150,7 +149,7 @@ class HadithSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $info = $xpath->query('(//*[contains(@class,"border-bottom")])[1]')?->item(0);
-        if (!($info instanceof DOMElement)) {
+        if (! ($info instanceof DOMElement)) {
             throw new ApiException('Invalid response structure from Dorar', 502);
         }
 
@@ -177,7 +176,7 @@ class HadithSearchService
 
         $result = [];
         foreach ($blocks as $block) {
-            if (!($block instanceof DOMElement)) {
+            if (! ($block instanceof DOMElement)) {
                 continue;
             }
 
@@ -201,7 +200,7 @@ class HadithSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $info = $xpath->query('(//*[contains(@class,"border-bottom")])[2]')?->item(0);
-        if (!($info instanceof DOMElement)) {
+        if (! ($info instanceof DOMElement)) {
             throw new ApiException('No alternate hadith found', 404);
         }
 
@@ -225,7 +224,7 @@ class HadithSearchService
 
         $xpath = $this->httpService->fetchDocument($url);
         $mainInfo = $xpath->query('(//*[contains(@class,"border-bottom")])[1]')?->item(0);
-        if (!($mainInfo instanceof DOMElement)) {
+        if (! ($mainInfo instanceof DOMElement)) {
             throw new ApiException('No usul hadith found', 404);
         }
 

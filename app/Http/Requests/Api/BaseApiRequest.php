@@ -20,6 +20,7 @@ abstract class BaseApiRequest extends FormRequest
         throw new HttpResponseException(response()->json([
             'status' => 'fail',
             'message' => $message,
-        ], 400));
+            'errors' => $validator->errors()->toArray(),
+        ], 422));
     }
 }

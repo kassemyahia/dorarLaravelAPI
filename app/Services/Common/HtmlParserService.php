@@ -63,7 +63,7 @@ class HtmlParserService
     public function mapApiHadithInfo(DOMXPath $xpath, DOMElement $info, bool $removeHtml): array
     {
         $hadithNode = $info->previousSibling;
-        while ($hadithNode && !($hadithNode instanceof DOMElement)) {
+        while ($hadithNode && ! ($hadithNode instanceof DOMElement)) {
             $hadithNode = $hadithNode->previousSibling;
         }
 
@@ -100,12 +100,12 @@ class HtmlParserService
         $articles = $xpath->query('//article') ?: [];
 
         foreach ($articles as $index => $article) {
-            if ($index === 0 || !($article instanceof DOMElement)) {
+            if ($index === 0 || ! ($article instanceof DOMElement)) {
                 continue;
             }
 
             $h5 = $this->findNode($xpath, './/h5', $article);
-            if (!$h5 instanceof DOMElement) {
+            if (! $h5 instanceof DOMElement) {
                 continue;
             }
 
@@ -158,7 +158,7 @@ class HtmlParserService
 
         $strongs = $xpath->query('.//strong', $infoElement) ?: [];
         foreach ($strongs as $strong) {
-            if (!($strong instanceof DOMElement)) {
+            if (! ($strong instanceof DOMElement)) {
                 continue;
             }
 
@@ -201,12 +201,12 @@ class HtmlParserService
         $links = $xpath->query('.//a[contains(@href,"/hadith-category/cat/")]', $container) ?: [];
 
         foreach ($links as $link) {
-            if (!($link instanceof DOMElement)) {
+            if (! ($link instanceof DOMElement)) {
                 continue;
             }
 
             $href = (string) $link->getAttribute('href');
-            if (!preg_match('#/hadith-category/cat/([^/?\#]+)#', $href, $match)) {
+            if (! preg_match('#/hadith-category/cat/([^/?\#]+)#', $href, $match)) {
                 continue;
             }
 
@@ -266,7 +266,7 @@ class HtmlParserService
     private function findAttr(DOMXPath $xpath, string $query, DOMElement $scope, string $attr): ?string
     {
         $node = $this->findNode($xpath, $query, $scope);
-        if (!$node) {
+        if (! $node) {
             return null;
         }
 

@@ -25,6 +25,7 @@ class ArabicNormalizer
         'ٍ' => '',                               // double kasra
         'ْ' => '',                               // sukun
         'ـ' => '',                               // tatweel (kashida)
+        'ى' => 'ي',
     ];
 
     /**
@@ -87,5 +88,10 @@ class ArabicNormalizer
             'normalized' => $normalized,
             'hash' => $hash,
         ];
+    }
+
+    public function tokens(string $text): array
+    {
+        return array_values(array_filter(preg_split('/\s+/u', $this->normalize($text)) ?: []));
     }
 }

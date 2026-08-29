@@ -5,6 +5,7 @@ namespace Tests\Feature\Enrichment;
 use App\Models\HadithImportJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class EnrichmentUploadTest extends TestCase
@@ -16,7 +17,8 @@ class EnrichmentUploadTest extends TestCase
      */
     public function test_upload_valid_hadith_file(): void
     {
-        $jsonData = [
+        Queue::fake();
+        $jsonData = ['id' => 1, 'metadata' => ['english' => ['title' => 'Sahih al-Bukhari']], 'chapters' => [], 'hadiths' => [
             [
                 'id' => 1,
                 'chapterId' => 1,
@@ -27,7 +29,7 @@ class EnrichmentUploadTest extends TestCase
                     'text' => 'Verily, actions are but by intentions.',
                 ],
             ],
-        ];
+        ]];
 
         $response = $this->postJson('/v1/api/enrichment/import', [
             'file' => $this->createJsonFile($jsonData),
@@ -72,12 +74,12 @@ class EnrichmentUploadTest extends TestCase
      */
     public function test_upload_with_missing_required_fields_fails(): void
     {
-        $jsonData = [
+        $jsonData = ['id' => 1, 'metadata' => [], 'chapters' => [], 'hadiths' => [
             [
                 'id' => 1,
                 // Missing 'arabic' and 'english'
             ],
-        ];
+        ]];
 
         $response = $this->postJson('/v1/api/enrichment/import', [
             'file' => $this->createJsonFile($jsonData),
@@ -107,7 +109,7 @@ class EnrichmentUploadTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonPath('data.jobId', $job->id);
         $response->assertJsonPath('data.status', 'processing');
-        $response->assertJsonPath('data.progress.percentage', 50.0);
+        $response->assertJsonPath('data.progress.percentage', 50);
     }
 
     /**
@@ -135,6 +137,7 @@ class EnrichmentUploadTest extends TestCase
      */
     public function test_resume_job(): void
     {
+        Queue::fake();
         $job = HadithImportJob::create([
             'filename' => 'test.json',
             'total_hadiths' => 100,
@@ -196,13 +199,18 @@ class EnrichmentUploadTest extends TestCase
         $response->assertStatus(404);
     }
 
+    public function test_enrichment_page_contains_csrf_token(): void
+    {
+        $this->get('/tools/enrichment')->assertOk()->assertSee('name="csrf-token"', false)->assertSee('X-CSRF-TOKEN');
+    }
+
     private function createJsonFile(array $data): UploadedFile
     {
         $json = json_encode($data);
         $path = tempnam(sys_get_temp_dir(), 'hadith_');
         file_put_contents($path, $json);
 
-        return new UploadedFile($path, 'test.json', 'application/json');
+        return new UploadedFile($path, 'test.json', 'application/json', null, true);
     }
 
     private function createFile(string $content): UploadedFile
@@ -210,6 +218,6 @@ class EnrichmentUploadTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'test_');
         file_put_contents($path, $content);
 
-        return new UploadedFile($path, 'test.json', 'application/json');
+        return new UploadedFile($path, 'test.json', 'application/json', null, true);
     }
 }

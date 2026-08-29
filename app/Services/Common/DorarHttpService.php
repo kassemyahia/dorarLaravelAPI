@@ -77,7 +77,7 @@ class DorarHttpService
                     $lastReason = $reason;
 
                     $isTransient = in_array($status, $transientStatuses, true);
-                    if (!$isTransient || $attempt >= $retries) {
+                    if (! $isTransient || $attempt >= $retries) {
                         break 2;
                     }
                 } catch (ConnectionException $e) {

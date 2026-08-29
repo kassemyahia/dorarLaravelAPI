@@ -8,9 +8,7 @@ use App\Services\Dorar\HadithSearchService;
 
 class HadithSearchController extends BaseApiController
 {
-    public function __construct(private readonly HadithSearchService $service)
-    {
-    }
+    public function __construct(private readonly HadithSearchService $service) {}
 
     public function searchUsingAPIDorar(HadithSearchRequest $request)
     {

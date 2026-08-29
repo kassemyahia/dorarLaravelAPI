@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('hadith_id')->nullable();
             $table->json('original_data');
             $table->json('enriched_data')->nullable();
-            $table->enum('status', ['pending', 'success', 'failed'])->default('pending');
+            $table->string('status')->default('pending');
             $table->text('error_message')->nullable();
             $table->enum('error_type', [
                 'NOT_FOUND',
@@ -32,6 +32,7 @@ return new class extends Migration
             $table->timestamp('processed_at')->nullable();
             $table->timestamps();
             $table->index(['import_job_id', 'status']);
+            $table->unique(['import_job_id', 'original_index']);
             $table->index('hadith_id');
         });
     }

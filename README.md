@@ -17,10 +17,18 @@ Laravel port of the original `dorar-hadith-api` project.
 ## Installation
 
 ```bash
-cd /home/kassem_yahia/Documents/Projects/Laravel/DorarLaravelAPI
 composer install
 cp .env.example .env
 php artisan key:generate
+touch database/database.sqlite
+php artisan migrate
+php artisan serve
+```
+
+In a second terminal, start the resumable chunk worker:
+
+```bash
+php artisan queue:work --tries=1 --timeout=600
 ```
 
 ## Run Locally
@@ -32,6 +40,19 @@ php artisan serve
 Default URL:
 
 - `http://127.0.0.1:8000`
+- Enrichment UI: `http://127.0.0.1:8000/tools/enrichment`
+
+The enrichment importer accepts the wrapper JSON files from
+`db/by_book/the_9_books/*.json`. It preserves `id`, `metadata`, `chapters`, every
+original hadith field (including `idInBook`), and adds `dorar` and `matching`.
+Requests are processed in chunks of 10. The delay and confidence thresholds can
+be selected per import. Dorar source filters are not inferred from the local
+1–9 `bookId` values.
+
+Upstream URLs and failure behavior can be configured with `DORAR_SITE_URL`,
+`DORAR_API_URL`, `FETCH_TIMEOUT`, `FETCH_RETRIES`, and
+`FETCH_RETRY_BASE_MS`. HTTP 403 means permitted upstream access is required;
+the application reports it and does not attempt to bypass Cloudflare.
 
 ## Documentation
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Hadith Enrichment Tool</title>
     <style>
         * {
@@ -438,6 +439,7 @@
 
         let currentJobId = null;
         let pollInterval = null;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
         // File selection
         fileInput.addEventListener('change', (e) => {
@@ -494,10 +496,10 @@
             try {
                 const response = await fetch('/v1/api/enrichment/import', {
                     method: 'POST',
+                    headers: {'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json'},
                     body: formData,
                 });
-
-                const data = await response.json();
+                const data = await parseResponse(response);
 
                 if (!response.ok) {
                     showError(data.message || 'خطأ في تحميل الملف');
@@ -522,6 +524,7 @@
 
         // Polling
         function startPolling() {
+            pollStatus();
             pollInterval = setInterval(pollStatus, 2000);
         }
 
@@ -530,7 +533,7 @@
 
             try {
                 const response = await fetch(`/v1/api/enrichment/jobs/${currentJobId}`);
-                const data = await response.json();
+                const data = await parseResponse(response);
 
                 if (!response.ok) {
                     stopPolling();
@@ -570,8 +573,11 @@
             document.getElementById('statusBadge').className = 'status-badge badge-' + job.status;
             document.getElementById('statusBadge').textContent = getStatusText(job.status);
 
-            // Show download buttons if completed
-            if (job.status === 'completed') {
+            document.getElementById('pauseBtn').style.display = ['pending','processing'].includes(job.status) ? '' : 'none';
+            document.getElementById('resumeBtn').style.display = job.status === 'paused' ? '' : 'none';
+            document.getElementById('cancelBtn').style.display = ['pending','processing','paused'].includes(job.status) ? '' : 'none';
+            if (job.errorMessage) showError(job.errorMessage);
+            if (job.exportable) {
                 document.getElementById('downloadGroup').style.display = 'flex';
                 document.getElementById('downloadJsonBtn').href = `/v1/api/enrichment/jobs/${currentJobId}/download/json`;
                 document.getElementById('downloadCsvBtn').href = `/v1/api/enrichment/jobs/${currentJobId}/download/csv`;
@@ -610,6 +616,7 @@
             try {
                 const response = await fetch(`/v1/api/enrichment/jobs/${currentJobId}/${action}`, {
                     method: 'POST',
+                    headers: {'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json'},
                 });
 
                 if (!response.ok) {
@@ -619,12 +626,9 @@
 
                 if (action === 'cancel') {
                     stopPolling();
-                    currentJobId = null;
-                    progressSection.classList.remove('visible');
-                    pauseResumeCancel.style.display = 'none';
-                    startBtn.disabled = false;
-                    fileInput.disabled = false;
                     showSuccess('تم إلغاء المهمة');
+                } else {
+                    startPolling();
                 }
             } catch (error) {
                 showError('خطأ في الاتصال');
@@ -649,6 +653,20 @@
             successMsg.classList.toggle('visible', !!msg);
             if (msg) errorMsg.classList.remove('visible');
         }
+
+        async function parseResponse(response) {
+            const text = await response.text();
+            try { return JSON.parse(text); } catch (_) { return {message: text || `HTTP ${response.status}`}; }
+        }
+
+        const savedJobId = new URLSearchParams(location.search).get('job') || localStorage.getItem('enrichmentJobId');
+        if (savedJobId) {
+            currentJobId = savedJobId;
+            progressSection.classList.add('visible');
+            pauseResumeCancel.style.display = 'flex';
+            startPolling();
+        }
+        window.addEventListener('beforeunload', () => currentJobId && localStorage.setItem('enrichmentJobId', currentJobId));
     </script>
 </body>
 </html>
