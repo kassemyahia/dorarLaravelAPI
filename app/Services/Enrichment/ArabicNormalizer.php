@@ -49,6 +49,10 @@ class ArabicNormalizer
     {
         $text = (string) $text;
 
+        // The nine-books files contain right-to-left marks and other invisible
+        // format characters that should never affect hashes or comparisons.
+        $text = preg_replace('/\p{Cf}+/u', '', $text) ?? $text;
+
         // Remove diacritics and tatweel
         $text = strtr($text, self::DIACRITIC_MAP);
 

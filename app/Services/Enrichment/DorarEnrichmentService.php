@@ -15,10 +15,13 @@ class DorarEnrichmentService
 
     private DorarBookMap $books;
 
-    public function __construct(private readonly HadithSearchService $search, private readonly ArabicNormalizer $normalizer, private readonly HadithMatcherService $matcher, ?SharhSearchService $sharh = null, ?DorarBookMap $books = null)
+    private HadithSearchQueryExtractor $queryExtractor;
+
+    public function __construct(private readonly HadithSearchService $search, private readonly ArabicNormalizer $normalizer, private readonly HadithMatcherService $matcher, ?SharhSearchService $sharh = null, ?DorarBookMap $books = null, ?HadithSearchQueryExtractor $queryExtractor = null)
     {
         $this->sharh = $sharh ?? app(SharhSearchService::class);
         $this->books = $books ?? new DorarBookMap;
+        $this->queryExtractor = $queryExtractor ?? new HadithSearchQueryExtractor;
     }
 
     public function enrichHadith(string $hadithText, ?string $bookId = null, int $delayMs = 5000, float $lowThreshold = .8, float $highThreshold = .95, ?string $bookName = null, int|string|null $number = null): array
@@ -27,18 +30,48 @@ class DorarEnrichmentService
         if ($cached = HadithNormalizedCache::where('normalized_hash', $normalized['hash'])->where('matched', true)->first()) {
             return $this->result($cached->matched, $cached->confidence, $cached->needs_review, null, null, $cached->dorar_result, true);
         }
-        $this->delay($delayMs);
         try {
-            $params = ['value' => $this->searchText($hadithText)];
-            if ($source = $this->books->verifiedDorarSourceId($bookId)) {
-                $params['s'] = [$source];
+            $queries = $this->queryExtractor->extract(
+                $hadithText,
+                (int) config('dorar.enrichment_search_attempts', 2),
+            );
+            $selection = null;
+            $queryUsed = $queries[0] ?? '';
+            $searchDiagnostics = [];
+
+            foreach ($queries as $query) {
+                $this->delay($delayMs);
+                $params = ['value' => $query, 'st' => 'w'];
+                if ($source = $this->books->verifiedDorarSourceId($bookId)) {
+                    $params['s'] = [$source];
+                }
+                $response = $this->search->searchUsingSiteDorar($params, 'home', true, false);
+                $candidates = $response['data'] ?? [];
+                if ($candidates === []) {
+                    $searchDiagnostics[] = ['query' => $query, 'candidateCount' => 0];
+
+                    continue;
+                }
+
+                $candidateSelection = $this->matcher->bestCandidate($query, $candidates, ['book_aliases' => $this->books->aliases($bookId, $bookName), 'number' => $number]);
+                $candidateScore = $candidateSelection['best']['score'] ?? 0;
+                $searchDiagnostics[] = ['query' => $query, 'candidateCount' => count($candidates), 'bestScore' => $candidateScore];
+
+                if ($selection === null || $candidateScore > ($selection['best']['score'] ?? 0)) {
+                    $selection = $candidateSelection;
+                    $queryUsed = $query;
+                }
+                if ($candidateScore >= $lowThreshold) {
+                    break;
+                }
             }
-            $response = $this->search->searchUsingSiteDorar($params, 'home', true, false);
-            $candidates = $response['data'] ?? [];
-            if ($candidates === []) {
-                return $this->result(false, 0, false, 'NOT_FOUND', 'No Dorar results found');
+
+            if ($selection === null) {
+                $result = $this->result(false, 0, false, 'NOT_FOUND', 'No Dorar results found');
+                $result['diagnostics'] = ['searchQueries' => $queries, 'searchAttempts' => $searchDiagnostics];
+
+                return $result;
             }
-            $selection = $this->matcher->bestCandidate($hadithText, $candidates, ['book_aliases' => $this->books->aliases($bookId, $bookName), 'number' => $number]);
             $best = $selection['best'];
             $match = $best['candidate'];
             $confidence = $best['score'];
@@ -59,7 +92,12 @@ class DorarEnrichmentService
                 }
             }
             $result = $this->result($matched, $confidence, $review, $matched ? null : 'MATCH_LOW_CONFIDENCE', $matched ? null : 'Best result is below the configured threshold', $dorar);
-            $result['diagnostics'] = $selection['diagnostics'];
+            $result['diagnostics'] = [
+                'searchQueries' => $queries,
+                'selectedQuery' => $queryUsed,
+                'searchAttempts' => $searchDiagnostics,
+                'candidates' => $selection['diagnostics'],
+            ];
             if ($matched) {
                 HadithNormalizedCache::updateOrCreate(['normalized_hash' => $normalized['hash']], ['original_text' => $hadithText, 'dorar_result' => $dorar, 'matched' => true, 'confidence' => $confidence, 'needs_review' => $review, 'error_type' => null]);
             }
@@ -81,13 +119,6 @@ class DorarEnrichmentService
         if ($this->lastRequestAt) {
             usleep((int) max(0, $ms * 1000 - (microtime(true) - $this->lastRequestAt) * 1000000));
         } $this->lastRequestAt = microtime(true);
-    }
-
-    private function searchText(string $text): string
-    {
-        $normalized = $this->normalizer->normalize($text);
-
-        return mb_substr($normalized, 0, 500);
     }
 
     private function emptyDorar(): array

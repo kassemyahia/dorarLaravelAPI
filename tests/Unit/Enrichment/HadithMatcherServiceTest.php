@@ -85,6 +85,16 @@ class HadithMatcherServiceTest extends TestCase
         $this->assertLessThan(0.90, $confidence);
     }
 
+    public function test_matn_phrase_matches_a_longer_dorar_text_with_minor_word_order_changes(): void
+    {
+        $confidence = $this->matcher->calculateConfidence(
+            queryText: 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى',
+            dorarText: 'الأعمال إنما تكون بالنيات وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله',
+        );
+
+        $this->assertGreaterThanOrEqual(0.80, $confidence);
+    }
+
     /**
      * Test null dorar text returns 0 confidence.
      */

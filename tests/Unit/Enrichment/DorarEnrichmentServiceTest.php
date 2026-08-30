@@ -140,6 +140,62 @@ class DorarEnrichmentServiceTest extends TestCase
         $this->assertTrue($result['matched']);
     }
 
+    public function test_searches_full_sanad_record_using_short_matn_query(): void
+    {
+        $hadithText = json_decode(
+            (string) file_get_contents(base_path('tests/Fixtures/by_book_sample.json')),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        )['hadiths'][0]['arabic'];
+
+        $this->hadithSearchServiceMock->shouldReceive('searchUsingSiteDorar')
+            ->once()
+            ->withArgs(function (array $params): bool {
+                return $params['value'] === 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى'
+                    && $params['st'] === 'w';
+            })
+            ->andReturn([
+                'data' => [[
+                    'hadith' => 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى',
+                    'hadithId' => '1',
+                    'book' => 'صحيح البخاري',
+                ]],
+            ]);
+
+        $result = $this->service->enrichHadith($hadithText, bookId: '1', delayMs: 0);
+
+        $this->assertTrue($result['matched']);
+        $this->assertSame('1', $result['dorar']['hadithId']);
+        $this->assertSame('إنما الأعمال بالنيات وإنما لكل امرئ ما نوى', $result['diagnostics']['selectedQuery']);
+    }
+
+    public function test_tries_second_matn_query_after_empty_results(): void
+    {
+        $hadithText = json_decode(
+            (string) file_get_contents(base_path('tests/Fixtures/by_book_sample.json')),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        )['hadiths'][0]['arabic'];
+
+        $this->hadithSearchServiceMock->shouldReceive('searchUsingSiteDorar')
+            ->twice()
+            ->andReturn(
+                ['data' => []],
+                [
+                    'data' => [[
+                        'hadith' => 'وإنما لكل امرئ ما نوى فمن كانت هجرته',
+                        'hadithId' => 'fallback',
+                    ]],
+                ],
+            );
+
+        $result = $this->service->enrichHadith($hadithText, delayMs: 0, lowThreshold: 0.7);
+
+        $this->assertCount(2, $result['diagnostics']['searchQueries']);
+        $this->assertTrue($result['matched']);
+        $this->assertSame('fallback', $result['dorar']['hadithId']);
+    }
+
     public function test_transient_failure_is_not_cached(): void
     {
         $this->hadithSearchServiceMock->shouldReceive('searchUsingSiteDorar')->twice()->andThrow(new ApiException('rate limited', 429));

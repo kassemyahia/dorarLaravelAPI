@@ -47,6 +47,8 @@ class ChunkProcessingTest extends TestCase
         $this->assertSame(1, $json['id']);
         $this->assertCount(2, $json['hadiths']);
         $this->assertSame([1, 2], array_column($json['hadiths'], 'idInBook'));
+        $this->assertSame('إنما الأعمال بالنيات وإنما لكل امرئ ما نوى', $json['hadiths'][0]['matching']['diagnostics']['selectedQuery']);
+        $this->assertSame('بني الإسلام على خمس شهادة أن لا إله', $json['hadiths'][1]['matching']['diagnostics']['selectedQuery']);
     }
 
     public function test_http_403_is_stored_as_request_failed_and_not_cached(): void

@@ -33,9 +33,13 @@ class HadithMatcherService
         $ta = array_unique($this->normalizer->tokens($a));
         $tb = array_unique($this->normalizer->tokens($b));
         $union = array_unique([...$ta, ...$tb]);
-        $jaccard = count($union) ? count(array_intersect($ta, $tb)) / count($union) : 0;
+        $intersection = count(array_intersect($ta, $tb));
+        $jaccard = count($union) ? $intersection / count($union) : 0;
+        $shorterCount = min(count($ta), count($tb));
+        $coverage = $shorterCount ? $intersection / $shorterCount : 0;
+        $coverageScore = $shorterCount >= 4 ? .9 * $coverage + .1 * $jaccard : 0;
         $containment = min(mb_strlen($a), mb_strlen($b)) > 20 && (str_contains($a, $b) || str_contains($b, $a)) ? .95 : 0;
-        $score = max($jaccard, $containment);
+        $score = max($jaccard, $coverageScore, $containment);
         if ($dorarBook && collect($bookAliases)->contains(fn ($alias) => str_contains($this->normalizer->normalize($dorarBook), $this->normalizer->normalize($alias)))) {
             $score += .03;
         }
