@@ -34,6 +34,9 @@ class HadithEnrichmentService
             $enriched = $hadith;
             $enriched['dorar'] = $result['dorar'];
             $enriched['matching'] = ['matched' => $result['matched'], 'confidence' => $result['confidence'], 'needsReview' => $result['needs_review'], 'status' => $status];
+            if (isset($result['diagnostics'])) {
+                $enriched['matching']['diagnostics'] = $result['diagnostics'];
+            }
             HadithEnrichmentRecord::updateOrCreate(['import_job_id' => $job->id, 'original_index' => $index], ['hadith_id' => $hadith['id'] ?? null, 'original_data' => $hadith, 'enriched_data' => $enriched, 'status' => $status, 'error_message' => $result['error_message'], 'error_type' => $result['error_type'], 'matched' => $result['matched'], 'confidence' => $result['confidence'], 'needs_review' => $result['needs_review'], 'processed_at' => now()]);
         }
     }

@@ -50,8 +50,10 @@ be selected per import. Dorar source filters are not inferred from the local
 1–9 `bookId` values.
 
 Upstream URLs and failure behavior can be configured with `DORAR_SITE_URL`,
-`DORAR_API_URL`, `FETCH_TIMEOUT`, `FETCH_RETRIES`, and
-`FETCH_RETRY_BASE_MS`. HTTP 403 means permitted upstream access is required;
+`DORAR_API_URL`, `FETCH_TIMEOUT`, `FETCH_RETRIES`,
+`FETCH_RETRY_BASE_MS`, and `ENRICHMENT_SEARCH_ATTEMPTS`. Enrichment extracts a
+short matn phrase from each full sanad-containing nine-books record before it
+searches Dorar. HTTP 403 means permitted upstream access is required;
 the application reports it and does not attempt to bypass Cloudflare.
 
 `QUEUE_CONNECTION=database` means `php artisan serve` does not execute queued
