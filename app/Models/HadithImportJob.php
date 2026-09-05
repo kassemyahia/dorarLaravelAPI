@@ -14,6 +14,8 @@ class HadithImportJob extends Model
     protected $fillable = [
         'filename',
         'original_file_path',
+        'manifest_path',
+        'chunk_directory',
         'original_wrapper',
         'total_hadiths',
         'processed_count',
