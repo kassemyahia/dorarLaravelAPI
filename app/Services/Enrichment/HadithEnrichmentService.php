@@ -41,6 +41,17 @@ class HadithEnrichmentService
         }
     }
 
+    public function enrichChunk(HadithImportJob $job, array $rows): void
+    {
+        foreach ($rows as $row) {
+            $this->enrichBatch($job, [$row['data']], (int) $row['original_index']);
+            $job->refresh();
+            if ($job->isPaused() || $job->isCancelled()) {
+                return;
+            }
+        }
+    }
+
     private function store(HadithImportJob $job, int $index, array $data, string $status, string $type, string $message): void
     {
         $enriched = $data + ['dorar' => ['rawi' => null, 'mohdith' => null, 'mohdithId' => null, 'book' => null, 'bookId' => null, 'numberOrPage' => null, 'grade' => null, 'explainGrade' => null, 'takhrij' => null, 'hadithId' => null, 'url' => null, 'sharh' => null, 'source' => 'Dorar'], 'matching' => ['matched' => false, 'confidence' => 0, 'needsReview' => true, 'status' => $status]];
