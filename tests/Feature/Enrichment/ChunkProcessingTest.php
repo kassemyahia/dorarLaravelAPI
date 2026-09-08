@@ -5,7 +5,6 @@ namespace Tests\Feature\Enrichment;
 use App\Jobs\Enrichment\ProcessHadithImportJob;
 use App\Models\HadithImportJob;
 use App\Models\HadithNormalizedCache;
-use App\Services\Enrichment\HadithEnrichmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
@@ -40,11 +39,12 @@ class ChunkProcessingTest extends TestCase
         $this->assertSame(0, $job->enrichmentRecords()->where('status', 'pending')->count());
         $this->assertGreaterThan(0, HadithNormalizedCache::count());
 
-        app(ProcessHadithImportJob::class, ['importJobId' => $job->id])->handle(app(HadithEnrichmentService::class));
+        app()->call([app(ProcessHadithImportJob::class, ['importJobId' => $job->id]), 'handle']);
         $this->assertSame(2, $job->enrichmentRecords()->count());
 
         $json = $this->get("/v1/api/enrichment/jobs/{$job->id}/download/json")->assertOk()->json();
         $this->assertSame(1, $json['id']);
+        $this->assertSame('بدء الوحي', $json['chapters'][0]['arabic']);
         $this->assertCount(2, $json['hadiths']);
         $this->assertSame([1, 2], array_column($json['hadiths'], 'idInBook'));
         $this->assertSame('إنما الأعمال بالنيات وإنما لكل امرئ ما نوى', $json['hadiths'][0]['matching']['diagnostics']['selectedQuery']);

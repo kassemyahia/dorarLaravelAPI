@@ -5,6 +5,7 @@ namespace App\Services\Enrichment;
 use App\Models\HadithImportJob;
 use Illuminate\Support\Facades\Storage;
 use JsonMachine\Items;
+use JsonMachine\JsonDecoder\ExtJsonDecoder;
 use RuntimeException;
 use Throwable;
 
@@ -31,9 +32,13 @@ class HadithImportChunkService
         $chunks = [];
         $buffer = [];
         $count = 0;
+        $decoder = new ExtJsonDecoder(true);
 
         try {
-            foreach (Items::fromFile($disk->path($job->original_file_path), ['pointer' => '/hadiths']) as $index => $hadith) {
+            foreach (Items::fromFile($disk->path($job->original_file_path), [
+                'pointer' => '/hadiths',
+                'decoder' => $decoder,
+            ]) as $index => $hadith) {
                 if (! is_array($hadith)) {
                     throw new RuntimeException("Hadith at index {$index} must be an object");
                 }
@@ -54,11 +59,7 @@ class HadithImportChunkService
                 throw new RuntimeException('Invalid JSON: expected non-empty hadiths array');
             }
 
-            $metadata = null;
-            foreach (Items::fromFile($disk->path($job->original_file_path), ['pointer' => '/metadata']) as $key => $value) {
-                $metadata[$key] = $value;
-            }
-            $wrapper = $metadata === null ? [] : ['metadata' => $metadata];
+            $wrapper = $job->original_wrapper ?? [];
             $manifest = ['version' => 1, 'source_format' => 'hadith-json', 'total' => $count, 'wrapper' => $wrapper, 'chunks' => $chunks];
             $manifestPath = $directory.'/manifest.json';
             $this->atomicWrite($disk->path($manifestPath), json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
